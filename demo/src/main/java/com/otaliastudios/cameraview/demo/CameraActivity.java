@@ -1,15 +1,12 @@
 package com.otaliastudios.cameraview.demo;
 
 import android.animation.ValueAnimator;
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.BitmapFactory.Options;
 import android.graphics.ImageFormat;
-import android.graphics.Matrix;
 import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
@@ -27,6 +24,8 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.os.Handler;
+import android.os.Message;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
@@ -50,18 +49,16 @@ import com.otaliastudios.cameraview.frame.FrameProcessor;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.sql.SQLOutput;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
+import java.util.Timer;
+import java.util.TimerTask;
+
+import android.os.Handler.Callback;
 
 //ffmpeg
 import com.arthenica.mobileffmpeg.Config;
@@ -99,10 +96,10 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
     final float[] accelerometerReading = new float[3];
     final float[] gyroscopeReading = new float[3];
 
-    Multimap<String,Float[]> sensorReadingHolder = ArrayListMultimap.create();
-    Multimap<String,List<Float>> d = ArrayListMultimap.create();
+    Multimap<Integer,float[]> sensorReadingHolder = ArrayListMultimap.create();
 
-    String currentTimeStamp = Long.toString(System.currentTimeMillis());
+    // currentTimeStamp = Long.toString(System.currentTimeMillis()); //need to change to actual timer instead of current system time, start when video starts
+    Timer sensorReadTimer;
 
 
     @Override
@@ -247,35 +244,28 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
 
     }
 
-
-    private void message(@NonNull String content, boolean important) {
-        if (important) {
-            LOG.w(content);
-            Toast.makeText(this, content, Toast.LENGTH_LONG).show();
-        } else {
-            LOG.i(content);
-            Toast.makeText(this, content, Toast.LENGTH_SHORT).show();
-        }
-    }
-
     private class Listener extends CameraListener {
 
         @Override
         public void onVideoRecordingEnd() {
             super.onVideoRecordingEnd();
-            message("Video taken. Processing...", false);
+            Message aMessage = new Message();
+            Bundle b = new Bundle();
+            b.putString("Video","Stop");
+            aMessage.setData(b);
+            h.sendMessage(aMessage);
+            System.out.println(aMessage.getWhen());
+            //message("Video taken. Processing...", false);
             LOG.w("onVideoRecordingEnd!");
-
             // Sometime longer recording times cause issues going straight to frame split
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-
+//            try {
+//                Thread.sleep(1000);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
 
             File afile = new File(videoFilePath);
-            pictureFromVideo(afile);
+            getFramesFromVideo(afile);
         }
 
         @Override
@@ -315,8 +305,6 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
 
         @Override
         public void onVideoTaken(@NonNull VideoResult result) {
-
-
             super.onVideoTaken(result);
             LOG.w("onVideoTaken called! Launching activity.");
             VideoPreviewActivity.setVideoResult(result);
@@ -329,7 +317,11 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
         public void onVideoRecordingStart() {
             super.onVideoRecordingStart();
             LOG.w("onVideoRecordingStart!");
-
+            Message aMessage = new Message();
+            Bundle b = new Bundle();
+            b.putString("Video","Start");
+            aMessage.setData(b);
+            h.sendMessage(aMessage);
         }
 
         @Override
@@ -362,7 +354,8 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
         }
     }
 
-    private void pictureFromVideo(File movieFile){
+
+    private void getFramesFromVideo(File movieFile){
         MediaInformation info = FFprobe.getMediaInformation(movieFile.getPath());
         System.out.println(info);
 
@@ -384,6 +377,9 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
             e.printStackTrace();
         }
     }
+    /*
+    Uses FFmpeg to rotate images, either horizontally, vertically or both
+     */
 
     private void ffmpegRotate() throws IOException {
         Random random = new Random();
@@ -433,6 +429,108 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
                 }
             }
         }
+     public void startSensorTimer(){
+        sensorReadTimer = new Timer();
+        sensorReadTimer.scheduleAtFixedRate(new TimerTask() {
+            int counter = 0;
+            @Override
+            public void run() {
+                sensorReadingHolder.put(counter,accelerometerReading);
+                sensorReadingHolder.put(counter,gyroscopeReading);
+                System.out.println("sensor readings: " + sensorReadingHolder.keySet());
+                counter++;
+            }
+        }, 0,333); //33ms for 30fps footage
+     }
+
+     public void stopSensorTimer(){
+        sensorReadTimer.cancel();
+     }
+
+
+    /*
+    All event listeners and handlers
+    */
+
+    final Handler h = new Handler(new Callback() {
+        @Override
+        public boolean handleMessage(@NonNull Message msg) {
+            Bundle b = new Bundle();
+            b = msg.getData();
+            String value = b.getString("Video");
+            System.out.println("message value is " + value);
+            System.out.println(msg.getWhen() + " 1234567");
+            switch (value){
+                case "Start":
+                    startSensorTimer();
+                    break;
+                case "Stop":
+                    stopSensorTimer();
+                    break;
+                default:
+                    System.out.println("No message match found");
+            }
+            return false;
+        }
+    });
+
+    protected void onResume() {
+        super.onResume();
+        sensorManager.registerListener( this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+        sensorManager.registerListener( this, gyroscope, SensorManager.SENSOR_DELAY_NORMAL);
+    }
+
+    protected void onPause() {
+        super.onPause();
+        sensorManager.unregisterListener((SensorEventListener) this);
+    }
+
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+
+    public void onSensorChanged(SensorEvent event) {
+        switch (event.sensor.getType()) {
+            case Sensor.TYPE_ACCELEROMETER: {
+                System.arraycopy(event.values, 0, accelerometerReading, 0, accelerometerReading.length);
+                break;
+            }
+            case Sensor.TYPE_GYROSCOPE: {
+                System.arraycopy(event.values, 0, gyroscopeReading, 0, gyroscopeReading.length);
+                break;
+            }
+        }
+    }
+
+    @Override
+    public void onClick(View view) {
+        switch (view.getId()) {
+            case R.id.edit: edit(); break;
+            case R.id.capturePicture: capturePicture(); break;
+            case R.id.capturePictureSnapshot: capturePictureSnapshot(); break;
+            case R.id.captureVideo: captureVideo(); break;
+            case R.id.captureVideoSnapshot: captureVideoSnapshot(); break;
+            case R.id.toggleCamera: toggleCamera(); break;
+            case R.id.changeFilter: changeCurrentFilter(); break;
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        BottomSheetBehavior b = BottomSheetBehavior.from(controlPanel);
+        if (b.getState() != BottomSheetBehavior.STATE_HIDDEN) {
+            b.setState(BottomSheetBehavior.STATE_HIDDEN);
+            return;
+        }
+        super.onBackPressed();
+    }
+
+    private void edit() {
+        BottomSheetBehavior b = BottomSheetBehavior.from(controlPanel);
+        b.setState(BottomSheetBehavior.STATE_COLLAPSED);
+    }
+
+    /*
+    All basic camera functions
+     */
 
     private void capturePicture() {
         if (camera.getMode() == Mode.VIDEO) {
@@ -517,65 +615,6 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
         return true;
     }
 
-    /*
-    All event listeners and handlers
-    */
-
-    protected void onResume() {
-        super.onResume();
-        sensorManager.registerListener( this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
-        sensorManager.registerListener( this, gyroscope, SensorManager.SENSOR_DELAY_NORMAL);
-    }
-
-    protected void onPause() {
-        super.onPause();
-        sensorManager.unregisterListener((SensorEventListener) this);
-    }
-
-    public void onAccuracyChanged(Sensor sensor, int accuracy) {}
-
-    public void onSensorChanged(SensorEvent event) {
-        switch (event.sensor.getType()) {
-            case Sensor.TYPE_ACCELEROMETER: {
-                System.arraycopy(event.values, 0, accelerometerReading, 0, accelerometerReading.length);
-                break;
-            }
-            case Sensor.TYPE_GYROSCOPE: {
-                System.arraycopy(event.values, 0, gyroscopeReading, 0, gyroscopeReading.length);
-                break;
-            }
-        }
-        sensorReadingHolder.put(currentTimeStamp,accelerometerReading);
-    }
-
-    @Override
-    public void onClick(View view) {
-        switch (view.getId()) {
-            case R.id.edit: edit(); break;
-            case R.id.capturePicture: capturePicture(); break;
-            case R.id.capturePictureSnapshot: capturePictureSnapshot(); break;
-            case R.id.captureVideo: captureVideo(); break;
-            case R.id.captureVideoSnapshot: captureVideoSnapshot(); break;
-            case R.id.toggleCamera: toggleCamera(); break;
-            case R.id.changeFilter: changeCurrentFilter(); break;
-        }
-    }
-
-    @Override
-    public void onBackPressed() {
-        BottomSheetBehavior b = BottomSheetBehavior.from(controlPanel);
-        if (b.getState() != BottomSheetBehavior.STATE_HIDDEN) {
-            b.setState(BottomSheetBehavior.STATE_HIDDEN);
-            return;
-        }
-        super.onBackPressed();
-    }
-
-    private void edit() {
-        BottomSheetBehavior b = BottomSheetBehavior.from(controlPanel);
-        b.setState(BottomSheetBehavior.STATE_COLLAPSED);
-    }
-
     //request Permissions
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
@@ -586,6 +625,16 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
         }
         if (valid && !camera.isOpened()) {
             camera.open();
+        }
+    }
+
+    private void message(@NonNull String content, boolean important) {
+        if (important) {
+            LOG.w(content);
+            Toast.makeText(this, content, Toast.LENGTH_LONG).show();
+        } else {
+            LOG.i(content);
+            Toast.makeText(this, content, Toast.LENGTH_SHORT).show();
         }
     }
 }
