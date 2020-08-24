@@ -72,6 +72,7 @@ import static com.arthenica.mobileffmpeg.Config.RETURN_CODE_SUCCESS;
 //apache commons imaging
 import org.apache.commons.imaging.ImageReadException;
 import org.apache.commons.imaging.ImageWriteException;
+import org.apache.commons.io.FilenameUtils;
 
 
 public class CameraActivity extends AppCompatActivity implements View.OnClickListener, OptionView.Callback, SensorEventListener {
@@ -351,7 +352,7 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
         try {
             Date currentTime = Calendar.getInstance().getTime();
             String videoFileName = Long.toString(currentTime.getTime())+".mp4";
-            camera.takeVideo(new File(initialFolderPath, videoFileName), 200); // sort this out at some point!!! should be linked with stop recording button not timer
+            camera.takeVideo(new File(initialFolderPath, videoFileName), 1000); // sort this out at some point!!! should be linked with stop recording button not timer
             videoFilePath = initialFolderPath + "/" + videoFileName;
             Log.i(Config.TAG, "video path is: "+ videoFilePath);
         } catch (Exception e) {
@@ -365,7 +366,7 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
 
         //int returnCode = FFmpeg.execute("-skip_frame nokey -i " + videoFilePath + " -vsync 0 -frame_pts true "+ initialFolderPath +"/out%d.jpg");
         //int returnCode = FFmpeg.execute("-i " + videoFilePath + " -r 30/1 "+ initialFolderPath +"/out%03d.jpg");
-        int returnCode = FFmpeg.execute("-i " + videoFilePath + " -r 30/1 "+ initialFolderPath +"/original%d.jpg");
+        int returnCode = FFmpeg.execute("-i " + videoFilePath + " -r 30/1 "+ initialFolderPath +"/original-%d.jpg");
 
         if (returnCode == RETURN_CODE_SUCCESS) {
             Log.i(Config.TAG, "Async command execution completed successfully.");
@@ -395,10 +396,12 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
         for (int i = 0; i < files.length; i++) {
             if (files[i].getName().endsWith(".jpg")) {
                 try {
-                    if(files[i].getName().endsWith(Integer.toString(i) + ".jpg")){
-                        accelerometerReading = sensorAccelReadingHolder.get(i);
-                        gyroscopeReading = sensorGyroReadingHolder.get(i);
-                        ExifDataHandler.addData(files[i].getAbsoluteFile(),accelerometerReading,gyroscopeReading);
+// need to remove the extension, split at - and then get the integer value from it to match with sensor log
+                    if(files[i].getName().contains("original")) {
+                        int frameNumber = Integer.parseInt(FilenameUtils.getBaseName(files[i].getName()).substring(9));
+                        accelerometerReading = sensorAccelReadingHolder.get(frameNumber);
+                        gyroscopeReading = sensorGyroReadingHolder.get(frameNumber);
+                        ExifDataHandler.addData(files[i].getAbsoluteFile(), accelerometerReading, gyroscopeReading);
                     }
                 } catch (ImageReadException e) {
                     e.printStackTrace();

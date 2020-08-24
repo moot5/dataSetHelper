@@ -55,7 +55,7 @@ public class ExifDataHandler {
 
         String accelerometerString = Arrays.toString(accelerometerReadings);
         String gyroscopeString = Arrays.toString(gyroscopeReadings);
-        String sensorString = (accelerometerString + "," + gyroscopeString);
+        String sensorString = ("A:"+accelerometerString + ",G:" + gyroscopeString);
         byte[] sensorStringBytes = sensorString.getBytes();
         TiffOutputField outputField = new TiffOutputField(ExifTagConstants.EXIF_TAG_USER_COMMENT, FieldType.ASCII, sensorStringBytes.length, sensorStringBytes);
 
