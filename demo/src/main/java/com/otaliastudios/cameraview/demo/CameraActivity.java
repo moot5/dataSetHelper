@@ -352,7 +352,7 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
         try {
             Date currentTime = Calendar.getInstance().getTime();
             String videoFileName = Long.toString(currentTime.getTime())+".mp4";
-            camera.takeVideo(new File(initialFolderPath, videoFileName), 1000); // sort this out at some point!!! should be linked with stop recording button not timer
+            camera.takeVideo(new File(initialFolderPath, videoFileName), 30000); // sort this out at some point!!! should be linked with stop recording button not timer
             videoFilePath = initialFolderPath + "/" + videoFileName;
             Log.i(Config.TAG, "video path is: "+ videoFilePath);
         } catch (Exception e) {
@@ -389,6 +389,8 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
     private void ffmpegRotate() throws IOException {
         Random random = new Random();
         int returnCode;
+        float[] accelTempHolder = new float[3];
+        float[] gyroTempHolder = new float[3];
 
         File directory = new File(initialFolderPath);
         File[] files = directory.listFiles();
@@ -397,10 +399,10 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
             if (files[i].getName().endsWith(".jpg")) {
                 try {
 // need to remove the extension, split at - and then get the integer value from it to match with sensor log
-                    if(files[i].getName().contains("original")) {
+                    if(files[i].getName().startsWith("original")) {
                         int frameNumber = Integer.parseInt(FilenameUtils.getBaseName(files[i].getName()).substring(9));
-                        accelerometerReading = sensorAccelReadingHolder.get(frameNumber);
-                        gyroscopeReading = sensorGyroReadingHolder.get(frameNumber);
+                        accelTempHolder = sensorAccelReadingHolder.get(frameNumber);
+                        gyroTempHolder = sensorGyroReadingHolder.get(frameNumber);
                         ExifDataHandler.addData(files[i].getAbsoluteFile(), accelerometerReading, gyroscopeReading);
                     }
                 } catch (ImageReadException e) {
@@ -451,7 +453,7 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
                 sensorGyroReadingHolder.put(counter,gyroscopeReading);
                 counter++;
             }
-        }, 0,333); //33ms for 30fps footage
+        }, 0,33); //33ms for 30fps footage
      }
 
      public void stopSensorTimer(){
@@ -504,7 +506,7 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
             }
             case Sensor.TYPE_GAME_ROTATION_VECTOR: {
                 System.arraycopy(event.values, 0, gyroscopeReading, 0, gyroscopeReading.length);
-                System.out.println("gyroscope x =" + gyroscopeReading[0] + ",y= " + gyroscopeReading[1] + ",z= " + gyroscopeReading[2]);
+                //System.out.println("gyroscope x =" + gyroscopeReading[0] + ",y= " + gyroscopeReading[1] + ",z= " + gyroscopeReading[2]);
                 break;
             }
         }
