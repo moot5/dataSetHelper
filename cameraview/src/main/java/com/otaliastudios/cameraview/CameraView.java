@@ -2372,7 +2372,7 @@ public class CameraView extends FrameLayout implements LifecycleObserver {
         public void dispatchFrame(@NonNull final Frame frame) {
             // The getTime() below might crash if developers incorrectly release
             // frames asynchronously.
-            LOG.v("dispatchFrame:", frame.getTime(), "processors:", mFrameProcessors.size());
+           // LOG.v("dispatchFrame:", frame.getTime(), "processors:", mFrameProcessors.size());
             if (mFrameProcessors.isEmpty()) {
                 // Mark as released. This instance will be reused.
                 frame.release();
@@ -2381,8 +2381,8 @@ public class CameraView extends FrameLayout implements LifecycleObserver {
                 mFrameProcessingExecutor.execute(new Runnable() {
                     @Override
                     public void run() {
-                        LOG.v("dispatchFrame: executing. Passing", frame.getTime(),
-                                "to processors.");
+                        //LOG.v("dispatchFrame: executing. Passing", frame.getTime(),
+                                //"to processors.");
                         for (FrameProcessor processor : mFrameProcessors) {
                             try {
                                 processor.process(frame);

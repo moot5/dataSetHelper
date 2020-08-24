@@ -53,7 +53,9 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -93,10 +95,13 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
     Sensor accelerometer;
     Sensor gyroscope;
 
-    final float[] accelerometerReading = new float[3];
-    final float[] gyroscopeReading = new float[3];
+    float[] accelerometerReading = new float[3];
+    float[] gyroscopeReading = new float[3];
 
     Multimap<Integer,float[]> sensorReadingHolder = ArrayListMultimap.create();
+
+    Map<Integer,float[]> sensorAccelReadingHolder = new HashMap<>();
+    Map<Integer,float[]> sensorGyroReadingHolder = new HashMap<>();
 
     // currentTimeStamp = Long.toString(System.currentTimeMillis()); //need to change to actual timer instead of current system time, start when video starts
     Timer sensorReadTimer;
@@ -109,7 +114,7 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
 
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
 
-        gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR);
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
 
@@ -130,7 +135,7 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
                     long newTime = frame.getTime();
                     long delay = newTime - lastTime;
                     lastTime = newTime;
-                    LOG.v("Frame delayMillis:", delay, "FPS:", 1000 / delay);
+                    //LOG.v("Frame delayMillis:", delay, "FPS:", 1000 / delay);
                     if (DECODE_BITMAP) {
                         if (frame.getFormat() == ImageFormat.NV21
                                 && frame.getDataClass() == byte[].class) {
@@ -253,16 +258,16 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
             Bundle b = new Bundle();
             b.putString("Video","Stop");
             aMessage.setData(b);
-            h.sendMessage(aMessage);
+            handler.sendMessage(aMessage);
             System.out.println(aMessage.getWhen());
             //message("Video taken. Processing...", false);
             LOG.w("onVideoRecordingEnd!");
             // Sometime longer recording times cause issues going straight to frame split
-//            try {
-//                Thread.sleep(1000);
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
 
             File afile = new File(videoFilePath);
             getFramesFromVideo(afile);
@@ -321,7 +326,7 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
             Bundle b = new Bundle();
             b.putString("Video","Start");
             aMessage.setData(b);
-            h.sendMessage(aMessage);
+            handler.sendMessage(aMessage);
         }
 
         @Override
@@ -346,14 +351,13 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
         try {
             Date currentTime = Calendar.getInstance().getTime();
             String videoFileName = Long.toString(currentTime.getTime())+".mp4";
-            camera.takeVideo(new File(initialFolderPath, videoFileName), 1000);
+            camera.takeVideo(new File(initialFolderPath, videoFileName), 200); // sort this out at some point!!! should be linked with stop recording button not timer
             videoFilePath = initialFolderPath + "/" + videoFileName;
             Log.i(Config.TAG, "video path is: "+ videoFilePath);
         } catch (Exception e) {
             Toast.makeText(getBaseContext(), "Cannot write text to External Storage!", Toast.LENGTH_SHORT).show();
         }
     }
-
 
     private void getFramesFromVideo(File movieFile){
         MediaInformation info = FFprobe.getMediaInformation(movieFile.getPath());
@@ -391,7 +395,11 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
         for (int i = 0; i < files.length; i++) {
             if (files[i].getName().endsWith(".jpg")) {
                 try {
-                    ExifDataHandler.addData(files[i].getAbsoluteFile());
+                    if(files[i].getName().endsWith(Integer.toString(i) + ".jpg")){
+                        accelerometerReading = sensorAccelReadingHolder.get(i);
+                        gyroscopeReading = sensorGyroReadingHolder.get(i);
+                        ExifDataHandler.addData(files[i].getAbsoluteFile(),accelerometerReading,gyroscopeReading);
+                    }
                 } catch (ImageReadException e) {
                     e.printStackTrace();
                 } catch (ImageWriteException e) {
@@ -429,15 +437,15 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
                 }
             }
         }
+
      public void startSensorTimer(){
         sensorReadTimer = new Timer();
         sensorReadTimer.scheduleAtFixedRate(new TimerTask() {
             int counter = 0;
             @Override
             public void run() {
-                sensorReadingHolder.put(counter,accelerometerReading);
-                sensorReadingHolder.put(counter,gyroscopeReading);
-                System.out.println("sensor readings: " + sensorReadingHolder.keySet());
+                sensorAccelReadingHolder.put(counter,accelerometerReading);
+                sensorGyroReadingHolder.put(counter,gyroscopeReading);
                 counter++;
             }
         }, 0,333); //33ms for 30fps footage
@@ -452,14 +460,12 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
     All event listeners and handlers
     */
 
-    final Handler h = new Handler(new Callback() {
+    final Handler handler = new Handler(new Callback() {
         @Override
         public boolean handleMessage(@NonNull Message msg) {
             Bundle b = new Bundle();
             b = msg.getData();
             String value = b.getString("Video");
-            System.out.println("message value is " + value);
-            System.out.println(msg.getWhen() + " 1234567");
             switch (value){
                 case "Start":
                     startSensorTimer();
@@ -493,8 +499,9 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
                 System.arraycopy(event.values, 0, accelerometerReading, 0, accelerometerReading.length);
                 break;
             }
-            case Sensor.TYPE_GYROSCOPE: {
+            case Sensor.TYPE_GAME_ROTATION_VECTOR: {
                 System.arraycopy(event.values, 0, gyroscopeReading, 0, gyroscopeReading.length);
+                System.out.println("gyroscope x =" + gyroscopeReading[0] + ",y= " + gyroscopeReading[1] + ",z= " + gyroscopeReading[2]);
                 break;
             }
         }
@@ -553,7 +560,6 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
         message("Capturing picture snapshot...", false);
         camera.takePictureSnapshot();
     }
-
 
     private void captureVideoSnapshot() {
         if (camera.isTakingVideo()) {

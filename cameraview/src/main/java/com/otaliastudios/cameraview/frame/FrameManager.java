@@ -132,7 +132,7 @@ public abstract class FrameManager<T> {
 
         Frame frame = mFrameQueue.poll();
         if (frame != null) {
-            LOG.v("getFrame for time:", time, "RECYCLING.");
+            //LOG.v("getFrame for time:", time, "RECYCLING.");
             int userRotation = mAngles.offset(Reference.SENSOR, Reference.OUTPUT,
                     Axis.RELATIVE_TO_SENSOR);
             int viewRotation = mAngles.offset(Reference.SENSOR, Reference.VIEW,
@@ -140,7 +140,7 @@ public abstract class FrameManager<T> {
             frame.setContent(data, time, userRotation, viewRotation, mFrameSize, mFrameFormat);
             return frame;
         } else {
-            LOG.i("getFrame for time:", time, "NOT AVAILABLE.");
+            //LOG.i("getFrame for time:", time, "NOT AVAILABLE.");
             onFrameDataReleased(data, false);
             return null;
         }

@@ -20,11 +20,14 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.Date;
 
 public class ExifDataHandler {
 
-    public static void addData(File aJpeg) throws ImageWriteException, IOException, ImageReadException {
+    public static void addData(File aJpeg, float[] accelerometerReadings, float [] gyroscopeReadings) throws ImageWriteException, IOException, ImageReadException {
+    //public static void addData(File aJpeg) throws ImageWriteException, IOException, ImageReadException {
+
         System.out.println(aJpeg.getAbsolutePath());
         TiffOutputSet outputSet = null;
         final ImageMetadata md = Imaging.getMetadata(aJpeg);
@@ -47,9 +50,17 @@ public class ExifDataHandler {
             exifDir = outputSet.getOrCreateExifDirectory();
         }
 
-        String astring = "AX:-0.23311326,AY:0.0923843086,AZ:9.874436,GX:-0.0014088068,GY:-1.7180527E4,GZ:-0.0026305355";
-        byte[] byteArray = astring.getBytes();
-        TiffOutputField outputField = new TiffOutputField(ExifTagConstants.EXIF_TAG_SOFTWARE, FieldType.ASCII, byteArray.length, byteArray);
+        // replace this with actual results!
+        //String astring = "AX:-0.23311326,AY:0.0923843086,AZ:9.874436,GX:-0.0014088068,GY:-1.7180527E4,GZ:-0.0026305355";
+
+        String accelerometerString = Arrays.toString(accelerometerReadings);
+        String gyroscopeString = Arrays.toString(gyroscopeReadings);
+        String sensorString = (accelerometerString + "," + gyroscopeString);
+        byte[] sensorStringBytes = sensorString.getBytes();
+        TiffOutputField outputField = new TiffOutputField(ExifTagConstants.EXIF_TAG_USER_COMMENT, FieldType.ASCII, sensorStringBytes.length, sensorStringBytes);
+
+        //byte[] byteArray = astring.getBytes();
+        //TiffOutputField outputField = new TiffOutputField(ExifTagConstants.EXIF_TAG_SOFTWARE, FieldType.ASCII, byteArray.length, byteArray);
         exifDir.add(outputField);
 
         System.out.println(exifDir.getFields() + ": exif field types");

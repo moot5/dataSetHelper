@@ -88,7 +88,7 @@ public class Frame {
      */
     public void release() {
         if (!hasContent()) return;
-        LOG.v("Frame with time", mTime, "is being released.");
+        //LOG.v("Frame with time", mTime, "is being released.");
         Object data = mData;
         mData = null;
         mUserRotation = 0;

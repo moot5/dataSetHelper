@@ -1439,7 +1439,7 @@ public class Camera2Engine extends CameraBaseEngine implements
     @EngineThread
     @Override
     public void onImageAvailable(ImageReader reader) {
-        LOG.v("onImageAvailable:", "trying to acquire Image.");
+        //LOG.v("onImageAvailable:", "trying to acquire Image.");
         Image image = null;
         try {
             image = reader.acquireLatestImage();
@@ -1452,7 +1452,7 @@ public class Camera2Engine extends CameraBaseEngine implements
             Frame frame = getFrameManager().getFrame(image,
                     System.currentTimeMillis());
             if (frame != null) {
-                LOG.v("onImageAvailable:", "Image acquired, dispatching.");
+                //LOG.v("onImageAvailable:", "Image acquired, dispatching.");
                 getCallback().dispatchFrame(frame);
             } else {
                 LOG.i("onImageAvailable:", "Image acquired, but no free frames. DROPPING.");
