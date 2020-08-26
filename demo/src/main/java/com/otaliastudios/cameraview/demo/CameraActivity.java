@@ -99,7 +99,7 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
     float[] accelerometerReading = new float[3];
     float[] gyroscopeReading = new float[3];
 
-    Multimap<Integer,float[]> sensorReadingHolder = ArrayListMultimap.create();
+    //Multimap<Integer,float[]> sensorReadingHolder = ArrayListMultimap.create();
 
     Map<Integer,float[]> sensorAccelReadingHolder = new HashMap<>();
     Map<Integer,float[]> sensorGyroReadingHolder = new HashMap<>();
@@ -107,6 +107,7 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
     // currentTimeStamp = Long.toString(System.currentTimeMillis()); //need to change to actual timer instead of current system time, start when video starts
     Timer sensorReadTimer;
 
+    String pictureName = "s1";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -352,7 +353,7 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
         try {
             Date currentTime = Calendar.getInstance().getTime();
             String videoFileName = Long.toString(currentTime.getTime())+".mp4";
-            camera.takeVideo(new File(initialFolderPath, videoFileName), 30000); // sort this out at some point!!! should be linked with stop recording button not timer
+            camera.takeVideo(new File(initialFolderPath, videoFileName), 5000); // sort this out at some point!!! should be linked with stop recording button not timer
             videoFilePath = initialFolderPath + "/" + videoFileName;
             Log.i(Config.TAG, "video path is: "+ videoFilePath);
         } catch (Exception e) {
@@ -366,7 +367,7 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
 
         //int returnCode = FFmpeg.execute("-skip_frame nokey -i " + videoFilePath + " -vsync 0 -frame_pts true "+ initialFolderPath +"/out%d.jpg");
         //int returnCode = FFmpeg.execute("-i " + videoFilePath + " -r 30/1 "+ initialFolderPath +"/out%03d.jpg");
-        int returnCode = FFmpeg.execute("-i " + videoFilePath + " -r 30/1 "+ initialFolderPath +"/original-%d.jpg");
+        int returnCode = FFmpeg.execute("-i " + videoFilePath + " -r 30/1 "+ initialFolderPath +"/"+ pictureName +"-%d.jpg");
 
         if (returnCode == RETURN_CODE_SUCCESS) {
             Log.i(Config.TAG, "Async command execution completed successfully.");
@@ -399,8 +400,8 @@ public class CameraActivity extends AppCompatActivity implements View.OnClickLis
             if (files[i].getName().endsWith(".jpg")) {
                 try {
 // need to remove the extension, split at - and then get the integer value from it to match with sensor log
-                    if(files[i].getName().startsWith("original")) {
-                        int frameNumber = Integer.parseInt(FilenameUtils.getBaseName(files[i].getName()).substring(9));
+                    if(files[i].getName().startsWith(pictureName)) {
+                        int frameNumber = Integer.parseInt(FilenameUtils.getBaseName(files[i].getName()).substring(pictureName.length()+1));
                         accelTempHolder = sensorAccelReadingHolder.get(frameNumber);
                         gyroTempHolder = sensorGyroReadingHolder.get(frameNumber);
                         ExifDataHandler.addData(files[i].getAbsoluteFile(), accelerometerReading, gyroscopeReading);
